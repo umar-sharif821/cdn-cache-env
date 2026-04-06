@@ -1,3 +1,14 @@
+---
+title: Cdn Cache Optimizer
+emoji: 🌐
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+tags:
+  - openenv
+---
+
 # 🌐 CDN Cache Optimizer — OpenEnv RL Environment
 
 An RL environment simulating **edge CDN cache management** — the exact problem companies like Meta solve at planetary scale. An agent manages a cache of limited size, deciding which files to evict when new content arrives, balancing **hit rate**, **bandwidth efficiency**, and **thrash avoidance**.
