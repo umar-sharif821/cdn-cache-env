@@ -1,6 +1,5 @@
 """
-FastAPI server exposing OpenEnv interface over HTTP.
-Endpoints: POST /reset, POST /step, GET /state, GET /health, GET /tasks
+server/app.py - OpenEnv entry point for multi-mode deployment.
 """
 
 import sys
@@ -9,7 +8,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 
@@ -99,5 +97,10 @@ def root():
         "tasks": list(TASK_CONFIGS.keys()),
     }
 
+
+def main():
+    uvicorn.run("server.app:app", host="0.0.0.0", port=7860, reload=False)
+
+
 if __name__ == "__main__":
-    uvicorn.run("api.main:app", host="0.0.0.0", port=7860, reload=False)
+    main()
