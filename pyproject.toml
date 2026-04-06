@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "cdn-cache-optimizer"
@@ -11,14 +11,11 @@ dependencies = [
     "fastapi==0.111.0",
     "uvicorn==0.29.0",
     "pydantic==2.7.1",
-    "openai==1.30.1",
+    "openai>=2.7.2",
     "requests==2.31.0",
     "python-multipart==0.0.9",
+    "openenv-core>=0.2.0"
 ]
 
-[project.optional-dependencies]
-dev = ["pytest", "httpx"]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["env*", "api*"]
+[project.scripts]
+server = "inference:main"
