@@ -1,5 +1,6 @@
 """
 server/app.py - OpenEnv entry point for multi-mode deployment.
+Required by openenv validate for multi-mode deployment.
 """
 
 import sys

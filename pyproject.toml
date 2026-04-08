@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "cdn-cache-optimizer"
@@ -14,8 +14,12 @@ dependencies = [
     "openai>=2.7.2",
     "requests==2.31.0",
     "python-multipart==0.0.9",
-    "openenv-core>=0.2.0"
+    "openenv-core>=0.2.0",
 ]
 
 [project.scripts]
-server = "inference:main"
+server = "server.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["env*", "api*", "server*"]
