@@ -27,7 +27,7 @@ HF_TOKEN     = os.getenv("HF_TOKEN")
 HF_TOKEN     = os.environ.get("HF_TOKEN", "")
 
 if not HF_TOKEN:
-    print("[WARN] HF_TOKEN not set. Using API_BASE_URL without auth header override.")
+    print("[WARN] HF_TOKEN not set. Using API_BASE_URL without auth header override.", file=sys.stderr)
 
 client = OpenAI(
     base_url=API_BASE_URL,
@@ -127,17 +127,7 @@ def run_task(task_id: str) -> dict:
     step_num     = 0
 
     # ── [START] ──
-    print(json.dumps({
-        "type":    "START",
-        "task_id": task_id,
-        "task_name": config.name,
-        "difficulty": config.difficulty,
-        "episode_length": config.episode_length,
-        "cache_capacity_mb": config.cache_capacity_mb,
-        "model": MODEL_NAME,
-        "seed": SEED,
-    }))
-    sys.stdout.flush()
+    print(f"[START] task={task_id}", flush=True)
 
     while True:
         action = llm_action(obs, step_num)
@@ -146,26 +136,7 @@ def run_task(task_id: str) -> dict:
         total_reward += result.reward.total
 
         # ── [STEP] ──
-        print(json.dumps({
-            "type":           "STEP",
-            "task_id":        task_id,
-            "step":           step_num,
-            "action":         {"evict_file_id": action.evict_file_id},
-            "cache_hit":      result.observation.cache_hit,
-            "reward":         result.reward.total,
-            "reward_breakdown": {
-                "cache_hit_bonus":       result.reward.cache_hit_bonus,
-                "eviction_penalty":      result.reward.eviction_penalty,
-                "thrash_penalty":        result.reward.thrash_penalty,
-                "bandwidth_saved":       result.reward.bandwidth_saved,
-                "wasted_capacity_penalty": result.reward.wasted_capacity_penalty,
-            },
-            "cumulative_reward": round(total_reward, 4),
-            "hit_rate":       result.observation.recent_hit_rate,
-            "cache_fill":     result.observation.cache_fill_ratio,
-            "done":           result.done,
-        }))
-        sys.stdout.flush()
+        print(f"[STEP] step={step_num} reward={round(result.reward.total, 4)}", flush=True)
 
         obs      = result.observation
         step_num += 1
@@ -173,29 +144,18 @@ def run_task(task_id: str) -> dict:
         if result.done:
             break
 
-    final_state = env.state()
+    final_state    = env.state()
     final_hit_rate = final_state["hit_rate"]
+    score          = round(min(1.0, final_hit_rate / {"task_easy": 0.60, "task_medium": 0.55, "task_hard": 0.45}[task_id]), 4)
 
     # ── [END] ──
-    print(json.dumps({
-        "type":              "END",
-        "task_id":           task_id,
-        "task_name":         config.name,
-        "total_steps":       step_num,
-        "total_reward":      round(total_reward, 4),
-        "final_hit_rate":    round(final_hit_rate, 4),
-        "bandwidth_saved_mb": round(final_state["bandwidth_saved_mb"], 2),
-        "total_hits":        final_state["hits"],
-        "total_misses":      final_state["misses"],
-        "score":             round(min(1.0, final_hit_rate / {"task_easy": 0.60, "task_medium": 0.55, "task_hard": 0.45}[task_id]), 4),
-    }))
-    sys.stdout.flush()
+    print(f"[END] task={task_id} score={score} steps={step_num}", flush=True)
 
     return {
         "task_id":        task_id,
         "total_reward":   round(total_reward, 4),
         "final_hit_rate": round(final_hit_rate, 4),
-        "score":          round(min(1.0, final_hit_rate / {"task_easy": 0.60, "task_medium": 0.55, "task_hard": 0.45}[task_id]), 4),
+        "score":          score,
     }
 
 
