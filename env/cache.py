@@ -264,3 +264,31 @@ class CDNCacheEnv:
             time_of_day=round(self.traffic.time_of_day(self._step), 4),
             queue_preview=preview,
         )
+class DriftCDNEnv(CDNCacheEnv):
+    def __init__(self, task_id="task_hard", seed=42):
+        super().__init__(task_id=task_id, seed=seed)
+        self._original_capacity = self.config.cache_capacity_mb
+        self._hit_multiplier = 1.0
+        self._thrash_multiplier = 1.0
+    def reset(self):
+        obs = super().reset()
+        self.config.cache_capacity_mb = self._original_capacity
+        self._hit_multiplier = 1.0
+        self._thrash_multiplier = 1.0
+        return obs
+    def step(self, action):
+        self._apply_drift()
+        result = super().step(action)
+        r = result.reward
+        new_total = round(r.cache_hit_bonus*self._hit_multiplier + r.eviction_penalty + r.thrash_penalty*self._thrash_multiplier + r.bandwidth_saved + r.wasted_capacity_penalty, 4)
+        from env.models import Reward, StepResult
+        return StepResult(observation=result.observation, reward=Reward(total=new_total, cache_hit_bonus=r.cache_hit_bonus*self._hit_multiplier, eviction_penalty=r.eviction_penalty, thrash_penalty=r.thrash_penalty*self._thrash_multiplier, bandwidth_saved=r.bandwidth_saved, wasted_capacity_penalty=r.wasted_capacity_penalty), done=result.done, info=result.info)
+    def _apply_drift(self):
+        if self._step == 50:
+            self.config.cache_capacity_mb *= 0.6
+            self._cache_used_mb = min(self._cache_used_mb, self.config.cache_capacity_mb)
+        elif self._step == 100:
+            self.traffic.viral_ratio = min(1.0, self.traffic.viral_ratio + 0.25)
+        elif self._step == 150:
+            self._hit_multiplier = 0.6
+            self._thrash_multiplier = 2.5

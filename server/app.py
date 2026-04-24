@@ -1,107 +1,52 @@
-"""
-server/app.py - OpenEnv entry point for multi-mode deployment.
-Required by openenv validate for multi-mode deployment.
-"""
-
+from fastapi import FastAPI
+from pydantic import BaseModel
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-import uvicorn
+sys.path.insert(0, os.path.abspath('..'))
 
-from env.cache import CDNCacheEnv, TASK_CONFIGS
-from env.models import Action, StepResult
+from env.cache import DriftCDNEnv
+from env.models import Action
 
-app = FastAPI(title="CDN Cache Optimizer - OpenEnv", version="1.0.0")
+class ActionInput(BaseModel):
+    evict_file_id: str = None
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class CDNEnvServer:
+    def __init__(self):
+        self.env = DriftCDNEnv(task_id='task_hard', seed=42)
+    
+    def reset(self):
+        obs = self.env.reset()
+        return obs.dict()
+    
+    def step(self, action_dict):
+        action = Action(evict_file_id=action_dict.get('evict_file_id'))
+        result = self.env.step(action)
+        return {
+            'observation': result.observation.dict(),
+            'reward': result.reward.total,
+            'done': result.done,
+            'info': result.info
+        }
+    
+    def state(self):
+        return self.env.state()
 
-_env: Optional[CDNCacheEnv] = None
+app = FastAPI()
+env_server = CDNEnvServer()
 
+@app.post("/reset")
+def reset():
+    return env_server.reset()
+
+@app.post("/step")
+def step(action: ActionInput):
+    return env_server.step(action.dict())
+
+@app.get("/state")
+def get_state():
+    return env_server.state()
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "env": "cdn-cache-optimizer"}
-
-@app.post("/health")
-def health_post():
-    return {"status": "ok", "env": "cdn-cache-optimizer"}
-
-@app.get("/tasks")
-def list_tasks():
-    return {
-        task_id: {
-            "name": cfg.name,
-            "difficulty": cfg.difficulty,
-            "description": cfg.description,
-            "cache_capacity_mb": cfg.cache_capacity_mb,
-            "episode_length": cfg.episode_length,
-        }
-        for task_id, cfg in TASK_CONFIGS.items()
-    }
-
-@app.post("/reset")
-async def reset(request: Request):
-    global _env
-    task_id = "task_easy"
-    seed = 42
-    try:
-        body = await request.json()
-        task_id = body.get("task_id", "task_easy")
-        seed = body.get("seed", 42)
-    except Exception:
-        pass
-    if task_id not in TASK_CONFIGS:
-        raise HTTPException(status_code=400, detail=f"Unknown task_id '{task_id}'.")
-    _env = CDNCacheEnv(task_id=task_id, seed=seed)
-    obs = _env.reset()
-    return {"observation": obs.dict(), "task": _env.config.dict()}
-
-@app.post("/step")
-async def step(request: Request):
-    global _env
-    if _env is None:
-        raise HTTPException(status_code=400, detail="Call /reset first.")
-    if _env._done:
-        raise HTTPException(status_code=400, detail="Episode done. Call /reset.")
-    evict_file_id = None
-    try:
-        body = await request.json()
-        evict_file_id = body.get("evict_file_id", None)
-    except Exception:
-        pass
-    action = Action(evict_file_id=evict_file_id)
-    result: StepResult = _env.step(action)
-    return result.dict()
-
-@app.get("/state")
-def state():
-    global _env
-    if _env is None:
-        raise HTTPException(status_code=400, detail="Call /reset first.")
-    return _env.state()
-
-@app.get("/")
-def root():
-    return {
-        "name": "CDN Cache Optimizer",
-        "spec": "OpenEnv v1",
-        "endpoints": ["/reset", "/step", "/state", "/health", "/tasks"],
-        "tasks": list(TASK_CONFIGS.keys()),
-    }
-
-
-def main():
-    uvicorn.run("server.app:app", host="0.0.0.0", port=7860, reload=False)
-
-
-if __name__ == "__main__":
-    main()
+    return {"status": "ok"}
